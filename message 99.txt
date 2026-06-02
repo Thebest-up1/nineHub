@@ -1,0 +1,922 @@
+--==============================================================--
+--   NINE HUB DUELS - Reconstructed Clean Version
+--   Reorganized for easy GUI/feature editing.
+--   Edit the CONFIG table below to change everything.
+--==============================================================--
+
+-- // [1] SERVICES // --
+local Players            = game:GetService("Players")
+local Workspace          = game:GetService("Workspace")
+local CoreGui            = game:GetService("CoreGui")
+local TweenService       = game:GetService("TweenService")
+local RunService         = game:GetService("RunService")
+local UserInputService   = game:GetService("UserInputService")
+local HttpService        = game:GetService("HttpService")
+
+local LocalPlayer        = Players.LocalPlayer
+local Camera             = Workspace.CurrentCamera
+
+
+-- // [2] CONFIGURATION (EDIT EVERYTHING HERE) // --
+local CONFIG = {
+
+    Names = {
+        ScreenGui      = "NineHubDuels",
+        Container      = "NinesContainer",
+        Watermark      = "NinesWatermark",
+        Timer          = "NinesTimer",
+        DynamicIsland  = "DynamicIsland",
+        SettingsPanel  = "SettingsPanel",
+        ESPFolder      = "NinesESP",
+    },
+
+    Title          = "Nine Hub Duels [U]",
+    Watermark      = "discord.gg/nines",
+    TrialDuration  = 25 * 60, -- seconds
+
+    Colors = {
+        Background    = Color3.fromRGB(18, 18, 22),
+        Surface       = Color3.fromRGB(28, 28, 34),
+        Stroke        = Color3.fromRGB(45, 45, 55),
+        Text          = Color3.fromRGB(245, 245, 250),
+        SubText       = Color3.fromRGB(140, 140, 150),
+        Accent        = Color3.fromRGB(142, 68, 204),  -- purple
+        Success       = Color3.fromRGB(45, 215, 95),
+        Danger        = Color3.fromRGB(220, 60, 60),
+        ToggleOff     = Color3.fromRGB(45, 45, 55),
+        ToggleOn      = Color3.fromRGB(142, 68, 204),
+    },
+
+    Sizes = {
+        IslandClosed  = UDim2.fromOffset(280, 45),
+        IslandOpen    = UDim2.fromOffset(300, 460),
+        SearchBar     = UDim2.new(1, -16, 0, 36),
+        SectionHeader = UDim2.new(1, -16, 0, 20),
+        Row           = UDim2.new(1, -16, 0, 36),
+        ToggleTrack   = UDim2.fromOffset(26, 14),
+        ToggleKnob    = UDim2.fromOffset(10, 10),
+        KeybindButton = UDim2.fromOffset(60, 18),
+        TextBoxValue  = UDim2.fromOffset(35, 18),
+    },
+
+    Positions = {
+        Watermark     = UDim2.new(1, -10, 0, 10),
+        Timer         = UDim2.new(1, -10, 0, 30),
+        Island        = UDim2.new(0.5, 0, 0, 10),
+    },
+
+    Fonts = {
+        Title         = Enum.Font.GothamBlack,
+        Header        = Enum.Font.GothamBold,
+        Body          = Enum.Font.GothamMedium,
+        Small         = Enum.Font.Gotham,
+    },
+
+    Defaults = {
+        AimbotSpeed       = 45,
+        AimbotRadius      = 35,
+        AimbotPredict     = 15,
+        AimbotKey         = Enum.KeyCode.X,
+        AutoLeftKey       = Enum.KeyCode.Z,
+        AutoRightKey      = Enum.KeyCode.C,
+        SpinBotKey        = Enum.KeyCode.N,
+        LagSpeedKey       = Enum.KeyCode.L,
+        SpeedBoostKey     = Enum.KeyCode.V,
+        TPDownKey         = Enum.KeyCode.H,
+        ToggleMenuKey     = Enum.KeyCode.U,
+        SpinSpeed         = 30,
+        HitRange          = 6,
+        SpeedBoost        = 59,
+        JumpCooldown      = 1,
+        MaxJumps          = 3,
+        StealSpeed        = 28,
+        StealCount        = 12,
+        ButtonScale       = 100,
+        MenuScale         = 100,
+        StealBarScale     = 100,
+    },
+
+    -- Loader URLs (wrapped in pcall when used)
+    Loaders = {
+        "https://api.luarmor.net/files/v4/loaders/e285247e216c4ae3a89d5663b87212bd.lua",
+        "https://cdn.luarmor.net/v4_init_marbeg.lua",
+    },
+}
+
+-- Sections + items rendered in the dynamic island
+local SECTIONS = {
+    {
+        title = "AIMBOT",
+        items = {
+            { kind = "header",  text = "Aimbot [X]" },
+            { kind = "value",   text = "Speed",        key = "AimbotSpeed"   },
+            { kind = "value",   text = "Radius",       key = "AimbotRadius"  },
+            { kind = "toggle",  text = "Prediction",   default = true       },
+            { kind = "toggle",  text = "Auto Predict", default = false      },
+            { kind = "toggle",  text = "Show Predict", default = false      },
+            { kind = "toggle",  text = "TP Chase",     default = true       },
+            { kind = "value",   text = "Predict",      key = "AimbotPredict"},
+            { kind = "keybind", text = "Keybind",      key = "AimbotKey"    },
+        },
+    },
+    {
+        title = "AUTO LEFT [Z]",
+        items = {
+            { kind = "keybind", text = "Keybind",         key = "AutoLeftKey" },
+            { kind = "button",  text = "Toggle Waypoints" },
+            { kind = "button",  text = "Set 1 (Going)" },
+            { kind = "button",  text = "Set 2 (Stealing)" },
+            { kind = "button",  text = "Set 3 (Leaving)" },
+            { kind = "button",  text = "Set 4 (Brainrot)" },
+            { kind = "button",  text = "Reset Left Path" },
+        },
+    },
+    {
+        title = "AUTO RIGHT [C]",
+        items = {
+            { kind = "keybind", text = "Keybind",          key = "AutoRightKey" },
+            { kind = "button",  text = "Reset Right Path" },
+        },
+    },
+    {
+        title = "SPIN BOT [N]",
+        items = {
+            { kind = "value",   text = "Speed",   key = "SpinSpeed"  },
+            { kind = "keybind", text = "Keybind", key = "SpinBotKey" },
+        },
+    },
+    {
+        title = "LAG SPEED [L]",
+        items = {
+            { kind = "keybind", text = "Keybind", key = "LagSpeedKey" },
+        },
+    },
+    {
+        title = "COMBAT & DEFENSE",
+        items = {
+            { kind = "toggle", text = "Auto Hit",     default = false },
+            { kind = "value",  text = "Hit Range",    key = "HitRange" },
+            { kind = "toggle", text = "Bat Revenge",  default = false },
+            { kind = "toggle", text = "Auto Medusa",  default = false },
+            { kind = "toggle", text = "Anti Fling",   default = true  },
+            { kind = "toggle", text = "Anti Ragdoll", default = true  },
+        },
+    },
+    {
+        title = "MOVEMENT",
+        items = {
+            { kind = "toggle",  text = "Speed Boost",  default = false },
+            { kind = "value",   text = "Speed Boost",  key = "SpeedBoost" },
+            { kind = "keybind", text = "Speed Key",    key = "SpeedBoostKey" },
+            { kind = "toggle",  text = "Infinite Jump",default = false },
+            { kind = "value",   text = "Cooldown",     key = "JumpCooldown" },
+            { kind = "toggle",  text = "Auto TP Down", default = false },
+            { kind = "value",   text = "Max Jumps",    key = "MaxJumps" },
+            { kind = "toggle",  text = "Unwalk",       default = false },
+        },
+    },
+    {
+        title = "AUTOMATION",
+        items = {
+            { kind = "toggle", text = "Auto Steal",  default = false },
+            { kind = "value",  text = "Steal Speed", key = "StealSpeed" },
+            { kind = "value",  text = "Steal Count", key = "StealCount" },
+        },
+    },
+    {
+        title = "VISUALS & MISC",
+        items = {
+            { kind = "toggle", text = "Player ESP",      default = false },
+            { kind = "toggle", text = "Controller Mode", default = false },
+        },
+    },
+    {
+        title = "FPS BOOSTERS",
+        items = {
+            { kind = "fpsButton", text = "Low Quality" },
+            { kind = "fpsButton", text = "No Shadows" },
+            { kind = "fpsButton", text = "Hide Particles" },
+            { kind = "fpsButton", text = "Transparent Bases" },
+        },
+    },
+    {
+        title = "CONFIGURATION",
+        items = {
+            { kind = "button",  text = "AUTO CONFIG" },
+            { kind = "value",   text = "Buttons %",    key = "ButtonScale" },
+            { kind = "value",   text = "Menu %",       key = "MenuScale" },
+            { kind = "value",   text = "Steal Bar %",  key = "StealBarScale" },
+            { kind = "button",  text = "Reset All Sizes" },
+            { kind = "toggle",  text = "Lock UI",      default = false },
+            { kind = "keybind", text = "TP Down",      key = "TPDownKey" },
+            { kind = "button",  text = "COPY WAYPOINTS" },
+            { kind = "button",  text = "RESET BUTTONS" },
+            { kind = "button",  text = "SAVE CONFIG" },
+        },
+    },
+}
+
+
+-- // [3] OBJECT REFERENCES // --
+local Container
+local Watermark
+local TimerLabel
+local Island
+local IslandTitle
+local IslandToggle
+local ScrollFrame
+local SearchBar
+local SearchBox
+local AimbotRadiusVisual
+local PredictionVisual
+local ESPFolder
+
+-- runtime state + element registry
+local State = {
+    Settings   = {},      -- live numeric/keybind values
+    Toggles    = {},      -- [name] = bool
+    Rows       = {},      -- [name] = row Frame (for search filtering)
+    SectionFrames = {},
+    MenuOpen   = false,
+    TrialEnd   = 0,
+    ESP        = {},
+}
+
+-- copy defaults into runtime settings
+for k, v in pairs(CONFIG.Defaults) do State.Settings[k] = v end
+
+
+-- // [4] UTILITY FUNCTIONS // --
+local function safe(callback)
+    local ok, err = pcall(callback)
+    if not ok then warn("[NineHub] " .. tostring(err)) end
+end
+
+local function getCharacter()
+    return LocalPlayer.Character
+end
+
+local function getHRP()
+    local char = getCharacter()
+    if not char then return nil end
+    return char:FindFirstChild("HumanoidRootPart")
+        or char:FindFirstChild("UpperTorso")
+        or char:FindFirstChild("Torso")
+end
+
+local function getHumanoid()
+    local char = getCharacter()
+    return char and char:FindFirstChildOfClass("Humanoid")
+end
+
+local function tween(obj, time, props)
+    local t = TweenService:Create(obj, TweenInfo.new(time, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
+    t:Play()
+    return t
+end
+
+local function newCorner(parent, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius or 8)
+    c.Parent = parent
+    return c
+end
+
+local function newStroke(parent, color, thickness)
+    local s = Instance.new("UIStroke")
+    s.Thickness = thickness or 1
+    s.Color = color or CONFIG.Colors.Stroke
+    s.Parent = parent
+    return s
+end
+
+local function newPadding(parent, top, bottom, left, right)
+    local p = Instance.new("UIPadding")
+    p.PaddingTop    = UDim.new(0, top    or 0)
+    p.PaddingBottom = UDim.new(0, bottom or 0)
+    p.PaddingLeft   = UDim.new(0, left   or 0)
+    p.PaddingRight  = UDim.new(0, right  or 0)
+    p.Parent = parent
+    return p
+end
+
+local function formatTime(secondsLeft)
+    secondsLeft = math.max(0, math.floor(secondsLeft))
+    local m = math.floor(secondsLeft / 60)
+    local s = secondsLeft % 60
+    return string.format("%02d:%02d", m, s)
+end
+
+local function getOtherPlayers()
+    local list = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then list[#list + 1] = p end
+    end
+    return list
+end
+
+
+-- // [5] GUI CREATION // --
+
+-- helpers that build individual rows ----------------------------------------
+
+local function createRow(parent, layoutOrder)
+    local row = Instance.new("Frame")
+    row.Name = "Row"
+    row.Size = CONFIG.Sizes.Row
+    row.BackgroundColor3 = CONFIG.Colors.Surface
+    row.BorderSizePixel = 0
+    row.LayoutOrder = layoutOrder or 0
+    row.Parent = parent
+    newCorner(row, 8)
+    return row
+end
+
+local function createLabel(parent, text, size, position, font, textSize, color, align)
+    local lbl = Instance.new("TextLabel")
+    lbl.BackgroundTransparency = 1
+    lbl.Size = size
+    lbl.Position = position or UDim2.new(0, 12, 0, 0)
+    lbl.Text = text
+    lbl.Font = font or CONFIG.Fonts.Body
+    lbl.TextSize = textSize or 12
+    lbl.TextColor3 = color or CONFIG.Colors.Text
+    lbl.TextXAlignment = align or Enum.TextXAlignment.Left
+    lbl.Parent = parent
+    return lbl
+end
+
+local function createToggle(row, defaultOn, onChanged)
+    local track = Instance.new("Frame")
+    track.Name = "ToggleTrack"
+    track.Size = CONFIG.Sizes.ToggleTrack
+    track.Position = UDim2.new(1, -CONFIG.Sizes.ToggleTrack.X.Offset - 8, 0.5, -CONFIG.Sizes.ToggleTrack.Y.Offset / 2)
+    track.BackgroundColor3 = defaultOn and CONFIG.Colors.ToggleOn or CONFIG.Colors.ToggleOff
+    track.BorderSizePixel = 0
+    track.Parent = row
+    newCorner(track, 7)
+
+    local knob = Instance.new("Frame")
+    knob.Name = "Knob"
+    knob.Size = CONFIG.Sizes.ToggleKnob
+    knob.BackgroundColor3 = Color3.new(1, 1, 1)
+    knob.BorderSizePixel = 0
+    knob.Parent = track
+    newCorner(knob, 5)
+
+    local function setVisual(on)
+        track.BackgroundColor3 = on and CONFIG.Colors.ToggleOn or CONFIG.Colors.ToggleOff
+        local x = on and (track.AbsoluteSize.X - knob.AbsoluteSize.X - 2) or 2
+        tween(knob, 0.15, { Position = UDim2.new(0, x, 0.5, -knob.AbsoluteSize.Y / 2) })
+    end
+
+    local on = defaultOn
+    setVisual(on)
+
+    local hit = Instance.new("TextButton")
+    hit.BackgroundTransparency = 1
+    hit.Text = ""
+    hit.Size = UDim2.new(1, 0, 1, 0)
+    hit.Parent = track
+    hit.Activated:Connect(function()
+        on = not on
+        setVisual(on)
+        if onChanged then onChanged(on) end
+    end)
+
+    return {
+        Frame = track,
+        Set   = function(v) on = v setVisual(v) end,
+        Get   = function() return on end,
+    }
+end
+
+local function createValueBox(row, defaultText, onChanged)
+    local box = Instance.new("TextBox")
+    box.Size = CONFIG.Sizes.TextBoxValue
+    box.Position = UDim2.new(1, -CONFIG.Sizes.TextBoxValue.X.Offset - 8, 0.5, -CONFIG.Sizes.TextBoxValue.Y.Offset / 2)
+    box.BackgroundColor3 = CONFIG.Colors.Background
+    box.TextColor3 = CONFIG.Colors.Text
+    box.Font = CONFIG.Fonts.Header
+    box.TextSize = 11
+    box.Text = tostring(defaultText)
+    box.ClearTextOnFocus = false
+    box.Parent = row
+    newCorner(box, 4)
+
+    box.FocusLost:Connect(function()
+        if onChanged then onChanged(box.Text) end
+    end)
+    return box
+end
+
+local function createKeybindButton(row, defaultKey, onChanged)
+    local btn = Instance.new("TextButton")
+    btn.Size = CONFIG.Sizes.KeybindButton
+    btn.Position = UDim2.new(1, -CONFIG.Sizes.KeybindButton.X.Offset - 8, 0.5, -CONFIG.Sizes.KeybindButton.Y.Offset / 2)
+    btn.BackgroundColor3 = CONFIG.Colors.Background
+    btn.TextColor3 = CONFIG.Colors.Accent
+    btn.Font = CONFIG.Fonts.Header
+    btn.TextSize = 11
+    btn.Text = (defaultKey and defaultKey.Name) or "..."
+    btn.AutoButtonColor = false
+    btn.Parent = row
+    newCorner(btn, 4)
+
+    local listening = false
+    btn.Activated:Connect(function()
+        if listening then return end
+        listening = true
+        btn.Text = "..."
+        local conn
+        conn = UserInputService.InputBegan:Connect(function(input, gpe)
+            if gpe then return end
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                btn.Text = input.KeyCode.Name
+                if onChanged then onChanged(input.KeyCode) end
+                listening = false
+                conn:Disconnect()
+            end
+        end)
+    end)
+    return btn
+end
+
+local function createTextButton(row, text, onClicked)
+    row.Size = UDim2.new(1, -16, 0, 30)
+    row.BackgroundColor3 = CONFIG.Colors.Background
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundTransparency = 1
+    btn.Text = text
+    btn.Font = CONFIG.Fonts.Body
+    btn.TextSize = 11
+    btn.TextColor3 = CONFIG.Colors.Text
+    btn.AutoButtonColor = false
+    btn.Parent = row
+    btn.Activated:Connect(function()
+        if onClicked then onClicked(btn) end
+    end)
+    return btn
+end
+
+-- main GUI builder ----------------------------------------------------------
+
+local function createGUI()
+    -- Root container (so ScreenGui rename / move is harmless)
+    Container = Instance.new("ScreenGui")
+    Container.Name = CONFIG.Names.ScreenGui
+    Container.ResetOnSpawn = false
+    Container.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    Container.IgnoreGuiInset = true
+    Container.Parent = CoreGui
+
+    -- Watermark
+    Watermark = Instance.new("TextLabel")
+    Watermark.Name = CONFIG.Names.Watermark
+    Watermark.AnchorPoint = Vector2.new(1, 0)
+    Watermark.Position = CONFIG.Positions.Watermark
+    Watermark.Size = UDim2.fromOffset(150, 20)
+    Watermark.BackgroundTransparency = 1
+    Watermark.Text = CONFIG.Watermark
+    Watermark.Font = CONFIG.Fonts.Header
+    Watermark.TextSize = 14
+    Watermark.TextColor3 = CONFIG.Colors.Text
+    Watermark.TextStrokeTransparency = 0
+    Watermark.TextStrokeColor3 = Color3.new(0, 0, 0)
+    Watermark.TextXAlignment = Enum.TextXAlignment.Right
+    Watermark.Parent = Container
+
+    -- Trial timer
+    TimerLabel = Instance.new("TextLabel")
+    TimerLabel.Name = CONFIG.Names.Timer
+    TimerLabel.AnchorPoint = Vector2.new(1, 0)
+    TimerLabel.Position = CONFIG.Positions.Timer
+    TimerLabel.Size = UDim2.fromOffset(150, 20)
+    TimerLabel.BackgroundTransparency = 1
+    TimerLabel.Text = "Trial: 25:00"
+    TimerLabel.Font = CONFIG.Fonts.Header
+    TimerLabel.TextSize = 12
+    TimerLabel.TextColor3 = CONFIG.Colors.Accent
+    TimerLabel.TextStrokeTransparency = 0
+    TimerLabel.TextXAlignment = Enum.TextXAlignment.Right
+    TimerLabel.Parent = Container
+
+    -- Dynamic Island main panel
+    Island = Instance.new("Frame")
+    Island.Name = CONFIG.Names.DynamicIsland
+    Island.AnchorPoint = Vector2.new(0.5, 0)
+    Island.Position = CONFIG.Positions.Island
+    Island.Size = CONFIG.Sizes.IslandClosed
+    Island.BackgroundColor3 = CONFIG.Colors.Background
+    Island.BackgroundTransparency = 0.05
+    Island.BorderSizePixel = 0
+    Island.ClipsDescendants = true
+    Island.Active = true
+    Island.Draggable = true
+    Island.Parent = Container
+    newCorner(Island, 22)
+    newStroke(Island, CONFIG.Colors.Stroke, 1.5)
+
+    -- Title bar
+    IslandTitle = Instance.new("TextLabel")
+    IslandTitle.Name = "Title"
+    IslandTitle.Size = UDim2.new(1, 0, 0, 45)
+    IslandTitle.BackgroundTransparency = 1
+    IslandTitle.Text = CONFIG.Title
+    IslandTitle.Font = CONFIG.Fonts.Title
+    IslandTitle.TextColor3 = CONFIG.Colors.Text
+    IslandTitle.TextSize = 16
+    IslandTitle.TextXAlignment = Enum.TextXAlignment.Center
+    IslandTitle.ZIndex = 2
+    IslandTitle.Parent = Island
+
+    IslandToggle = Instance.new("TextButton")
+    IslandToggle.Name = "OpenToggle"
+    IslandToggle.Size = UDim2.new(1, 0, 0, 45)
+    IslandToggle.BackgroundTransparency = 1
+    IslandToggle.Text = ""
+    IslandToggle.ZIndex = 10
+    IslandToggle.Parent = Island
+
+    -- Scrollable content area
+    ScrollFrame = Instance.new("ScrollingFrame")
+    ScrollFrame.Name = "Content"
+    ScrollFrame.Size = UDim2.new(1, 0, 1, -90)
+    ScrollFrame.Position = UDim2.new(0, 0, 0, 85)
+    ScrollFrame.BackgroundTransparency = 1
+    ScrollFrame.BorderSizePixel = 0
+    ScrollFrame.ScrollBarThickness = 2
+    ScrollFrame.ScrollBarImageColor3 = CONFIG.Colors.Accent
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    ScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    ScrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
+    ScrollFrame.Visible = false
+    ScrollFrame.Parent = Island
+
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.Padding = UDim.new(0, 8)
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    listLayout.Parent = ScrollFrame
+    newPadding(ScrollFrame, 6, 6, 0, 0)
+
+    -- Search bar
+    SearchBar = Instance.new("Frame")
+    SearchBar.Name = "SearchBar"
+    SearchBar.Size = CONFIG.Sizes.SearchBar
+    SearchBar.BackgroundColor3 = CONFIG.Colors.Surface
+    SearchBar.BorderSizePixel = 0
+    SearchBar.Position = UDim2.new(0, 8, 0, 45)
+    SearchBar.Visible = false
+    SearchBar.Parent = Island
+    newCorner(SearchBar, 8)
+
+    local searchIcon = createLabel(SearchBar, "🔍", UDim2.fromOffset(28, 36),
+        UDim2.new(0, 0, 0, 0), CONFIG.Fonts.Body, 14, CONFIG.Colors.SubText, Enum.TextXAlignment.Center)
+
+    SearchBox = Instance.new("TextBox")
+    SearchBox.Size = UDim2.new(1, -35, 1, 0)
+    SearchBox.Position = UDim2.new(0, 28, 0, 0)
+    SearchBox.BackgroundTransparency = 1
+    SearchBox.Text = ""
+    SearchBox.PlaceholderText = "Search..."
+    SearchBox.PlaceholderColor3 = CONFIG.Colors.SubText
+    SearchBox.TextColor3 = CONFIG.Colors.Text
+    SearchBox.Font = CONFIG.Fonts.Body
+    SearchBox.TextSize = 12
+    SearchBox.TextXAlignment = Enum.TextXAlignment.Left
+    SearchBox.ClearTextOnFocus = false
+    SearchBox.Parent = SearchBar
+
+    -- Build all sections from SECTIONS table
+    for sectionIndex, section in ipairs(SECTIONS) do
+        local header = Instance.new("Frame")
+        header.Name = "SectionHeader"
+        header.Size = CONFIG.Sizes.SectionHeader
+        header.BackgroundTransparency = 1
+        header.LayoutOrder = sectionIndex * 100
+        header.Parent = ScrollFrame
+        State.SectionFrames[section.title] = header
+
+        createLabel(header, section.title,
+            UDim2.new(1, -8, 1, 0),
+            UDim2.new(0, 8, 0, 0),
+            CONFIG.Fonts.Header, 11,
+            CONFIG.Colors.SubText)
+
+        for itemIndex, item in ipairs(section.items) do
+            local row = createRow(ScrollFrame, sectionIndex * 100 + itemIndex)
+            State.Rows[item.text] = row
+
+            -- left-side label / header style
+            if item.kind == "header" then
+                row.Size = UDim2.new(1, -16, 0, 30)
+                createLabel(row, item.text, UDim2.new(1, -24, 1, 0), UDim2.new(0, 12, 0, 0),
+                    CONFIG.Fonts.Header, 13, CONFIG.Colors.Text)
+
+            elseif item.kind == "toggle" then
+                createLabel(row, item.text, UDim2.new(1, -50, 1, 0))
+                local t = createToggle(row, item.default == true, function(v)
+                    State.Toggles[item.text] = v
+                end)
+                State.Toggles[item.text] = item.default == true
+
+            elseif item.kind == "value" then
+                createLabel(row, item.text, UDim2.new(1, -60, 1, 0))
+                local default = State.Settings[item.key]
+                createValueBox(row, default, function(txt)
+                    local n = tonumber(txt)
+                    if n then State.Settings[item.key] = n end
+                end)
+
+            elseif item.kind == "keybind" then
+                createLabel(row, item.text, UDim2.new(1, -80, 1, 0))
+                createKeybindButton(row, State.Settings[item.key], function(key)
+                    State.Settings[item.key] = key
+                end)
+
+            elseif item.kind == "button" then
+                createTextButton(row, item.text, function(btn)
+                    -- generic handler -> hooked up in Functionality section
+                    if State.ButtonHandlers and State.ButtonHandlers[item.text] then
+                        State.ButtonHandlers[item.text](btn)
+                    end
+                end)
+
+            elseif item.kind == "fpsButton" then
+                createTextButton(row, item.text .. ": OFF", function(btn)
+                    State.Toggles[item.text] = not State.Toggles[item.text]
+                    btn.Text = item.text .. (State.Toggles[item.text] and ": ON" or ": OFF")
+                end)
+            end
+        end
+    end
+
+    -- Aimbot range visualizer (cylinder on ground)
+    AimbotRadiusVisual = Instance.new("CylinderHandleAdornment")
+    AimbotRadiusVisual.Name = "AimbotRadiusVisual"
+    AimbotRadiusVisual.Color3 = CONFIG.Colors.Accent
+    AimbotRadiusVisual.Transparency = 0.3
+    AimbotRadiusVisual.AlwaysOnTop = false
+    AimbotRadiusVisual.Visible = false
+    AimbotRadiusVisual.Parent = CoreGui
+
+    -- Prediction sphere visualizer
+    PredictionVisual = Instance.new("SphereHandleAdornment")
+    PredictionVisual.Name = "PredictionVisual"
+    PredictionVisual.Radius = 1.2
+    PredictionVisual.Color3 = CONFIG.Colors.Success
+    PredictionVisual.Transparency = 0.4
+    PredictionVisual.AlwaysOnTop = true
+    PredictionVisual.Visible = false
+    PredictionVisual.Parent = CoreGui
+
+    -- ESP folder
+    ESPFolder = Instance.new("Folder")
+    ESPFolder.Name = CONFIG.Names.ESPFolder
+    ESPFolder.Parent = CoreGui
+end
+
+
+-- // [6] FUNCTIONALITY // --
+
+local function setMenuOpen(open)
+    State.MenuOpen = open
+    local goal = open and CONFIG.Sizes.IslandOpen or CONFIG.Sizes.IslandClosed
+    tween(Island, 0.25, { Size = goal })
+    ScrollFrame.Visible = open
+    SearchBar.Visible = open
+end
+
+-- Title button toggles the menu
+local function bindMenuToggle()
+    IslandToggle.Activated:Connect(function()
+        setMenuOpen(not State.MenuOpen)
+    end)
+
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if input.KeyCode == CONFIG.Defaults.ToggleMenuKey then
+            setMenuOpen(not State.MenuOpen)
+        end
+    end)
+end
+
+-- Search filter
+local function bindSearch()
+    SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local q = SearchBox.Text:lower()
+        for name, row in pairs(State.Rows) do
+            row.Visible = (q == "") or (name:lower():find(q, 1, true) ~= nil)
+        end
+    end)
+end
+
+-- ESP highlights
+local function ensureESP(player)
+    if not player.Character then return end
+    if State.ESP[player] and State.ESP[player].Parent then return end
+
+    local hl = Instance.new("Highlight")
+    hl.Name = "GeneralESP_Highlight"
+    hl.FillTransparency = 1
+    hl.OutlineColor = Color3.new(1, 1, 1)
+    hl.OutlineTransparency = 0
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent = player.Character
+
+    State.ESP[player] = hl
+end
+
+local function clearESP(player)
+    if State.ESP[player] then
+        State.ESP[player]:Destroy()
+        State.ESP[player] = nil
+    end
+end
+
+local function refreshESP()
+    local enabled = State.Toggles["Player ESP"]
+    for _, p in ipairs(getOtherPlayers()) do
+        if enabled then
+            ensureESP(p)
+        else
+            clearESP(p)
+        end
+    end
+end
+
+-- Aimbot target picking (radius based)
+local function findAimbotTarget()
+    local origin = getHRP()
+    if not origin then return nil end
+    local radius = State.Settings.AimbotRadius
+    local closest, closestDist
+    for _, p in ipairs(getOtherPlayers()) do
+        local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local d = (hrp.Position - origin.Position).Magnitude
+            if d <= radius and (not closestDist or d < closestDist) then
+                closest, closestDist = hrp, d
+            end
+        end
+    end
+    return closest
+end
+
+-- Anti-fling on the local character
+local function applyAntiFling()
+    if not State.Toggles["Anti Fling"] then return end
+    local hrp = getHRP()
+    if hrp then
+        if hrp.AssemblyLinearVelocity.Magnitude > 200 then
+            hrp.AssemblyLinearVelocity = Vector3.zero
+        end
+    end
+end
+
+-- Anti ragdoll
+local function applyAntiRagdoll()
+    if not State.Toggles["Anti Ragdoll"] then return end
+    local hum = getHumanoid()
+    if hum and hum:GetState() == Enum.HumanoidStateType.Ragdoll then
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
+end
+
+-- Speed boost
+local function applySpeedBoost()
+    local hum = getHumanoid()
+    if not hum then return end
+    if State.Toggles["Speed Boost"] then
+        hum.WalkSpeed = State.Settings.SpeedBoost
+    end
+end
+
+-- Infinite jump
+UserInputService.JumpRequest:Connect(function()
+    if State.Toggles["Infinite Jump"] then
+        local hum = getHumanoid()
+        if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end
+end)
+
+-- Generic action button handlers
+State.ButtonHandlers = {
+    ["Toggle Waypoints"] = function() print("[NineHub] Toggle Waypoints") end,
+    ["Set 1 (Going)"]    = function(b) b.Text = "Saved 1!" end,
+    ["Set 2 (Stealing)"] = function(b) b.Text = "Saved 2!" end,
+    ["Set 3 (Leaving)"]  = function(b) b.Text = "Saved 3!" end,
+    ["Set 4 (Brainrot)"] = function(b) b.Text = "Saved 4!" end,
+    ["Reset Left Path"]  = function(b) b.Text = "Reset!" end,
+    ["Reset Right Path"] = function(b) b.Text = "Reset!" end,
+    ["Reset All Sizes"]  = function(b) b.Text = "RESET!" end,
+    ["AUTO CONFIG"]      = function(b) b.Text = "SYNCED!" end,
+    ["COPY WAYPOINTS"]   = function(b)
+        b.Text = "COPIED!"
+        b.TextColor3 = CONFIG.Colors.Success
+        if setclipboard then safe(function() setclipboard("waypoints_copied") end) end
+    end,
+    ["RESET BUTTONS"]    = function(b) b.Text = "RESET!" end,
+    ["SAVE CONFIG"]      = function(b) b.Text = "SAVED!" end,
+}
+
+-- Trial timer
+local function startTrialTimer()
+    State.TrialEnd = tick() + CONFIG.TrialDuration
+    task.spawn(function()
+        while TimerLabel and TimerLabel.Parent do
+            local remaining = State.TrialEnd - tick()
+            TimerLabel.Text = "Free Trial: " .. formatTime(remaining)
+            if remaining <= 0 then break end
+            task.wait(1)
+        end
+    end)
+end
+
+-- Per-frame update loop (visual sync + features)
+local function startMainLoop()
+    RunService.RenderStepped:Connect(function()
+        -- aimbot radius visual
+        local hrp = getHRP()
+        if hrp then
+            AimbotRadiusVisual.Adornee = Workspace:FindFirstChild("Terrain") or Workspace
+            AimbotRadiusVisual.Height = 0.05
+            AimbotRadiusVisual.Radius = State.Settings.AimbotRadius
+            AimbotRadiusVisual.CFrame = hrp.CFrame
+        end
+        AimbotRadiusVisual.Visible = State.Toggles["Aimbot [X]"] == true
+
+        -- prediction visual
+        if State.Toggles["Show Predict"] then
+            local target = findAimbotTarget()
+            if target then
+                local pred = State.Settings.AimbotPredict / 60
+                PredictionVisual.Adornee = Workspace:FindFirstChild("Terrain") or Workspace
+                PredictionVisual.CFrame = CFrame.new(target.Position + target.AssemblyLinearVelocity * pred)
+                PredictionVisual.Visible = true
+            else
+                PredictionVisual.Visible = false
+            end
+        else
+            PredictionVisual.Visible = false
+        end
+
+        applyAntiFling()
+        applyAntiRagdoll()
+        applySpeedBoost()
+    end)
+end
+
+-- Player connections
+local function bindPlayerEvents()
+    Players.PlayerAdded:Connect(function(p)
+        p.CharacterAdded:Connect(function() task.wait(0.5) refreshESP() end)
+    end)
+    Players.PlayerRemoving:Connect(function(p)
+        clearESP(p)
+    end)
+    LocalPlayer.CharacterAdded:Connect(function() task.wait(0.5) refreshESP() end)
+end
+
+-- Re-apply ESP whenever toggle changes
+local function bindESPToggle()
+    local row = State.Rows["Player ESP"]
+    if not row then return end
+    -- Hook future toggle changes through periodic sync
+    task.spawn(function()
+        local last = nil
+        while row.Parent do
+            local cur = State.Toggles["Player ESP"]
+            if cur ~= last then
+                last = cur
+                refreshESP()
+            end
+            task.wait(0.5)
+        end
+    end)
+end
+
+
+-- // [7] INITIALIZATION // --
+
+local function init()
+    -- External loaders (executor + key system) - safe-wrapped so the GUI still loads if they fail
+    for _, url in ipairs(CONFIG.Loaders) do
+        safe(function() loadstring(game:HttpGet(url, true))() end)
+    end
+
+    createGUI()
+    bindMenuToggle()
+    bindSearch()
+    bindPlayerEvents()
+    bindESPToggle()
+    startTrialTimer()
+    startMainLoop()
+end
+
+init()
+
+Leaked by Finley discord.gg/t1hub
